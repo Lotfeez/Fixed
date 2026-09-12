@@ -146,7 +146,7 @@ class SessionViewModel(
                         BackendAuthClient.FailureKind.HTTP_ERROR -> SessionError.AUTH_FAILED
                         BackendAuthClient.FailureKind.MALFORMED_RESPONSE -> SessionError.MALFORMED_SERVER_RESPONSE
                     }
-                    dispatch(SessionEvent.AuthFailed(mapped))
+                    dispatch(SessionEvent.AuthFailed(mapped, tokenResult.message))
                     return@launch
                 }
                 is BackendAuthClient.Result.Success -> {
@@ -172,8 +172,8 @@ class SessionViewModel(
                         voice = "alloy",
                     )
                 )
-            }.onFailure {
-                dispatch(SessionEvent.TransportFailed(SessionError.OPENAI_SESSION_FAILED))
+            }.onFailure { throwable ->
+                dispatch(SessionEvent.TransportFailed(SessionError.OPENAI_SESSION_FAILED, throwable.message))
                 return@launch
             }
 
@@ -223,7 +223,7 @@ class SessionViewModel(
             is EngineEvent.PartialTranscript -> updateTranscript(event.text, isSource = event.isSource, isFinal = false)
             is EngineEvent.FinalTranscript -> updateTranscript(event.text, isSource = event.isSource, isFinal = true)
             is EngineEvent.Disconnected -> dispatch(SessionEvent.ConnectionLost)
-            is EngineEvent.Error -> dispatch(SessionEvent.FatalError(mapEngineError(event.exception.kind)))
+            is EngineEvent.Error -> dispatch(SessionEvent.FatalError(mapEngineError(event.exception.kind), event.exception.message))
         }
     }
 
