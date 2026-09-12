@@ -97,6 +97,19 @@ private fun StateBanner(state: SessionState) {
         modifier = Modifier.fillMaxWidth(),
         textAlign = TextAlign.Center,
     )
+    // Surface the real underlying error text (e.g. an OpenAI/WebSocket
+    // failure reason) instead of only the generic "Something went wrong"
+    // label, so a real device/network/account issue is diagnosable without
+    // needing a debugger attached.
+    if (state is SessionState.Error && !state.message.isNullOrBlank()) {
+        Text(
+            text = state.message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+        )
+    }
 }
 
 @Composable
