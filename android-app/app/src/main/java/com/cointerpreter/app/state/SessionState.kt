@@ -17,7 +17,7 @@ sealed class SessionState {
     data object Reconnecting : SessionState()
     data object Stopping : SessionState()
     data object Stopped : SessionState()
-    data class Error(val error: SessionError) : SessionState()
+    data class Error(val error: SessionError, val message: String? = null) : SessionState()
 }
 
 enum class SessionError {
@@ -45,9 +45,9 @@ sealed class SessionEvent {
     data object PermissionGranted : SessionEvent()
     data object PermissionDenied : SessionEvent()
     data object AuthSucceeded : SessionEvent()
-    data class AuthFailed(val error: SessionError) : SessionEvent()
+    data class AuthFailed(val error: SessionError, val message: String? = null) : SessionEvent()
     data object TransportConnected : SessionEvent()
-    data class TransportFailed(val error: SessionError) : SessionEvent()
+    data class TransportFailed(val error: SessionError, val message: String? = null) : SessionEvent()
     data object SpeechDetected : SessionEvent()
     data object SpeechEnded : SessionEvent()
     data object ResponseAudioStarted : SessionEvent()
@@ -57,7 +57,7 @@ sealed class SessionEvent {
     data object ReconnectExhausted : SessionEvent()
     data object StopRequested : SessionEvent()
     data object StopCompleted : SessionEvent()
-    data class FatalError(val error: SessionError) : SessionEvent()
+    data class FatalError(val error: SessionError, val message: String? = null) : SessionEvent()
 }
 
 /**
@@ -78,7 +78,7 @@ object SessionStateMachine {
             current !is SessionState.Stopping &&
             current !is SessionState.Stopped
         ) {
-            return SessionState.Error(event.error)
+            return SessionState.Error(event.error, event.message)
         }
 
         return when (current) {
@@ -96,14 +96,14 @@ object SessionStateMachine {
 
             SessionState.Authenticating -> when (event) {
                 SessionEvent.AuthSucceeded -> SessionState.Connecting
-                is SessionEvent.AuthFailed -> SessionState.Error(event.error)
+                is SessionEvent.AuthFailed -> SessionState.Error(event.error, event.message)
                 SessionEvent.StopRequested -> SessionState.Stopping
                 else -> null
             }
 
             SessionState.Connecting -> when (event) {
                 SessionEvent.TransportConnected -> SessionState.Ready
-                is SessionEvent.TransportFailed -> SessionState.Error(event.error)
+                is SessionEvent.TransportFailed -> SessionState.Error(event.error, event.message)
                 SessionEvent.StopRequested -> SessionState.Stopping
                 else -> null
             }
