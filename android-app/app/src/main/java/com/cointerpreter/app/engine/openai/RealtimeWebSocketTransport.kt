@@ -36,6 +36,17 @@ internal class RealtimeWebSocketTransport(
     private val url: String,
     private val ephemeralToken: String,
     private val safetyIdentifier: String? = null,
+    /**
+     * The exact `type` string this endpoint expects on an audio-append
+     * event. This is NOT uniform across OpenAI Realtime endpoints: the
+     * dedicated translation endpoint (confirmed directly from a live
+     * "Invalid value" server error during testing) only accepts
+     * `session.update`, `session.input_audio_buffer.append`, and
+     * `session.close` -- a `session.`-prefixed set distinct from the
+     * general-purpose realtime endpoint's flat `input_audio_buffer.append`.
+     * Each engine passes the correct value for the endpoint it talks to.
+     */
+    private val audioAppendEventType: String = "input_audio_buffer.append",
     private val client: OkHttpClient = defaultClient(),
 ) {
     private val socketRef = AtomicReference<WebSocket?>(null)
@@ -95,7 +106,17 @@ internal class RealtimeWebSocketTransport(
 
     fun sendAudio(pcm16: ByteArray) {
         val b64 = Base64.encodeToString(pcm16, Base64.NO_WRAP)
-        send(json.encodeToString(InputAudioBufferAppendEvent.serializer(), InputAudioBufferAppendEvent(audio = b64)))
+        send(
+            json.encodeToString(
+                InputAudioBufferAppendEvent.serializer(),
+                InputAudioBufferAppendEvent(type = audioAppendEventType, audio = b64),
+            )
+        )
+    }
+
+    /** Sends the endpoint's graceful-shutdown event before the socket itself closes, where supported. */
+    fun sendSessionClose() {
+        send("""{"type":"session.close"}""")
     }
 
     fun close() {
