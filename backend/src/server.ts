@@ -11,6 +11,11 @@ const config = loadConfig();
 
 const app = express();
 app.disable("x-powered-by");
+// Render (and most PaaS platforms) sit behind a reverse proxy and forward
+// the real client IP via X-Forwarded-For. express-rate-limit needs Express
+// to explicitly acknowledge that proxy, or it refuses to trust the header
+// at all (ERR_ERL_UNEXPECTED_X_FORWARDED_FOR) and throws on every request.
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "16kb" })); // session-token bodies are tiny; reject anything larger
 app.use(
   cors({
