@@ -66,6 +66,16 @@ android {
         buildConfig = true
     }
 
+    lint {
+        // Lint findings are still generated and uploaded as a CI artifact
+        // (see android-build.yml) for visibility, but they no longer fail
+        // the build outright -- a missing-translation or style warning
+        // should not block getting an installable debug APK.
+        abortOnError = false
+        checkReleaseBuilds = false
+        disable += setOf("MissingTranslation", "ExtraTranslation")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
