@@ -60,7 +60,15 @@ internal class OpenAiRealtimeTranslateEngine : RealtimeInterpreterEngine {
 
     override suspend fun start(config: EngineSessionConfig) {
         val url = "wss://api.openai.com/v1/realtime/translations?model=$engineId"
-        val t = RealtimeWebSocketTransport(url = url, ephemeralToken = config.ephemeralToken)
+        val t = RealtimeWebSocketTransport(
+            url = url,
+            ephemeralToken = config.ephemeralToken,
+            // Confirmed via a live "Invalid value" server error: this
+            // endpoint only accepts session.update, session.input_audio_
+            // buffer.append, and session.close -- not the flat event names
+            // used by the general-purpose realtime endpoint.
+            audioAppendEventType = "session.input_audio_buffer.append",
+        )
         transport = t
 
         t.connect()
@@ -141,11 +149,20 @@ internal class OpenAiRealtimeTranslateEngine : RealtimeInterpreterEngine {
     }
 
     override suspend fun commitAudioTurn() {
-        transport?.send(json.encodeToString(InputAudioBufferCommitEvent.serializer(), InputAudioBufferCommitEvent()))
+        // This endpoint's supported event set (confirmed live) is only
+        // session.update / session.input_audio_buffer.append / session.close
+        // -- there is no manual commit event. Translation is continuous
+        // over the streamed audio, so this is intentionally a no-op here
+        // (unlike the general-purpose engine, which does use a VAD-driven
+        // commit event on the standard realtime endpoint).
     }
 
     override suspend fun cancelResponse() {
-        transport?.send(json.encodeToString(ResponseCancelEvent.serializer(), ResponseCancelEvent()))
+        // Same reasoning as commitAudioTurn(): response.cancel is not in
+        // this endpoint's supported event list. Barge-in is handled purely
+        // client-side -- stop playback locally and let the continuous
+        // translation stream carry on -- rather than sending a wire event
+        // the server would reject.
         playedAudioMsSinceItemStart = 0
         _events.emit(EngineEvent.ResponseCancelled)
     }
@@ -154,6 +171,7 @@ internal class OpenAiRealtimeTranslateEngine : RealtimeInterpreterEngine {
     override suspend fun updateGlossary(glossary: List<GlossaryEntry>) { /* intentionally unsupported */ }
 
     override suspend fun stop() {
+        transport?.sendSessionClose()
         transport?.close()
         transport = null
     }
